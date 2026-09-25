@@ -1,0 +1,3 @@
+Comment
+npm i @langchain/core @langchain/openai @langchain/pinecone @octokit/rest @pinecone-database/pinecone
+
