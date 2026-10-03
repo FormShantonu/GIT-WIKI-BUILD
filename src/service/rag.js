@@ -1,0 +1,41 @@
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { search } from "./vectorStore.js";
+
+function toText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === "string" ? part : (part.text ?? "")))
+      .join("");
+  }
+  return String(content ?? "");
+}
+
+export async function askQuestion(repo, question, topK = 5) {
+  const docs = await search(repo, question, topK);
+
+  if (!docs.length) {
+    return {
+      answer:
+        "No indexed content was found for this repo. Index it first, then try again.",
+      sources: [],
+    };
+  }
+
+  const context = docs
+    .map((doc) => `File: ${doc.metadata.path}\n${doc.pageContent}`)
+    .join("\n\n");
+
+  const llm = new ChatGoogleGenerativeAI({
+    model: "gemini-3.8-flash",
+    apiKey: process.env.GOOGLE_API_KEY,
+  });
+  const response = await llm.invoke(
+    `Answer using this repo context only.\n\n${context}\n\nQuestion: ${question}`,
+  );
+
+  return {
+    answer: toText(response.content),
+    sources: [...new Set(docs.map((doc) => doc.metadata.path).filter(Boolean))],
+  };
+}
